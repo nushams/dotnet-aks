@@ -74,6 +74,7 @@ resource "azurerm_monitor_diagnostic_setting" "monitoring" {
 
 resource "azuread_group" "devs" {
   display_name = var.azuread_group
+  security_enabled = true
 }
 
 resource "azurerm_role_assignment" "contributor" {
