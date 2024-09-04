@@ -1,0 +1,12 @@
+name: Deployment Development
+
+on:
+  push:
+    branches: ["dev"]
+
+jobs:
+  release:
+    uses: ./.github/workflows/ci-cd-pipeline.yml
+    with:
+      environment: DEV
+    secrets: inherit

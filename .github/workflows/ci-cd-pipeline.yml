@@ -1,0 +1,148 @@
+name: Dot NET Core Application
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: string
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+      with:
+        terraform_wrapper: false
+
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Terraform Init
+      run: terraform init
+      working-directory: aspnet-core-dotnet-core/terraform
+
+    - name: Terraform Plan
+      id: plan
+      run: terraform plan -out=tfplan
+      working-directory: aspnet-core-dotnet-core/terraform
+
+    - name: Terraform Apply
+      if: steps.plan.outputs.changes != '0'
+      run: terraform apply -auto-approve
+      working-directory: aspnet-core-dotnet-core/terraform
+
+    - name: Save Terraform Output
+      if: steps.plan.outputs.changes != '0'
+      run: |
+        terraform output -json > terraform_outputs.json
+      working-directory: aspnet-core-dotnet-core/terraform
+
+    - name: Save Existing Terraform Output
+      if: steps.plan.outputs.changes == '0'
+      run: |
+        terraform show -json | jq '.values.outputs' > terraform_outputs.json
+      working-directory: aspnet-core-dotnet-core/terraform
+
+    - name: Upload Terraform Outputs
+      uses: actions/upload-artifact@v2
+      with:
+        name: terraform-outputs
+        path: aspnet-core-dotnet-core/terraform/terraform_outputs.json    
+
+    - name: Terraform Destroy (Optional)
+      if: github.event_name == 'pull_request' && github.event.action == 'closed'
+      run: terraform destroy -auto-approve
+      working-directory: aspnet-core-dotnet-core/terraform
+
+  build_and_test:
+    runs-on: ubuntu-latest
+    needs: terraform  # Ensures this job runs after Terraform
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: '2.2.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build -p:Environment=${{ inputs.environment }} --no-restore
+
+    - name: Test
+      run: dotnet test -p:Environment=${{ inputs.environment }} --no-restore --verbosity normal
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build_and_test  # Ensures this job runs after Build and Test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Download Terraform Outputs
+      uses: actions/download-artifact@v2
+      with:
+        name: terraform-outputs
+        path: .
+
+    - name: Read and Set Variables from Terraform Outputs
+      run: |
+        RESOURCE_GROUP_NAME=$(jq -r '.resource_group_name.value' terraform_outputs.json)
+        echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME" >> $GITHUB_ENV
+
+        AKS_CLUSTER_NAME=$(jq -r '.aks_cluster_name.value' terraform_outputs.json)
+        echo "AKS_CLUSTER_NAME=$AKS_CLUSTER_NAME" >> $GITHUB_ENV
+        
+        ACR_LOGIN_SERVER=$(jq -r '.acr_login_server.value' terraform_outputs.json)
+        echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> $GITHUB_ENV
+
+        ACR_USERNAME=$(jq -r '.acr_username.value' terraform_outputs.json)
+        echo "ACR_USERNAME=$ACR_USERNAME" >> $GITHUB_ENV
+
+        ACR_PASSWORD=$(jq -r '.acr_password.value' terraform_outputs.json)
+        echo "ACR_PASSWORD=$ACR_PASSWORD" >> $GITHUB_ENV
+
+    - name: Build and push Docker image
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ env.ACR_LOGIN_SERVER }}
+        username: ${{ env.ACR_USERNAME }}
+        password: ${{ env.ACR_PASSWORD }}
+
+    - name: Build Docker image
+      run: docker build -t ${{ env.ACR_LOGIN_SERVER }}/nurapp:${{ github.sha }} -f aspnet-core-dotnet-core/Dockerfile .
+
+    - name: Push Docker image
+      run: docker push ${{ env.ACR_LOGIN_SERVER }}/nurapp:${{ github.sha }}
+
+    - name: AKS set context
+      uses: azure/aks-set-context@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+        resource-group: ${{ env.RESOURCE_GROUP_NAME }}
+
+    - name: Deploy to AKS
+      run: |
+        kubectl apply -f aspnet-core-dotnet-core/k8s/deployment.yaml
+        kubectl apply -f aspnet-core-dotnet-core/k8s/service.yaml
+        kubectl set image deployment/nurapp-deployment nurapp-container=${{ env.ACR_LOGIN_SERVER }}/nurapp:${{ github.sha }}

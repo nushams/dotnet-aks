@@ -1,0 +1,27 @@
+{
+  "acr_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "nuracr"
+  },
+  "acr_password": {
+    "sensitive": true,
+    "type": "string",
+    "value": ""
+  },
+  "acr_username": {
+    "sensitive": true,
+    "type": "string",
+    "value": ""
+  },
+  "aks_cluster_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "nur-aks-cluster"
+  },
+  "resource_group_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "rg-dot-net-aks"
+  }
+}
