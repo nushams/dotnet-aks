@@ -31,45 +31,16 @@ jobs:
       working-directory: aspnet-core-dotnet-core/terraform
 
     - name: Terraform Plan
-      id: terraform
-      run: |
-        set +e
-        terraform plan -out=tfplan 1>stdout 2>stderr
-        tf_exitcode=$?
-        echo "EXIT_CODE=$tf_exitcode" >> $GITHUB_ENV
-        # Avoid issues with special characters and large content
-        cat stdout | tee stdout.txt
-        cat stderr | tee stderr.txt
-        # Use artifacts to store stdout and stderr if needed
-        echo "STDOUT=$(cat stdout.txt | sed 's/[^\x00-\x7F]/\\u/g')" >> $GITHUB_ENV
-        echo "STDERR=$(cat stderr.txt | sed 's/[^\x00-\x7F]/\\u/g')" >> $GITHUB_ENV
+      run: terraform plan -out=tfplan
       working-directory: aspnet-core-dotnet-core/terraform
-      shell: bash
-
-    - name: Upload Terraform Plan Output
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: terraform-outputs
-        path: |
-          stdout.txt
-          stderr.txt
 
     - name: Terraform Apply
-      if: env.EXIT_CODE == '2'
-      run: terraform apply -auto-approve tfplan
+      run: terraform apply -auto-approve
       working-directory: aspnet-core-dotnet-core/terraform
 
     - name: Save Terraform Output
-      if: env.EXIT_CODE == '2'
       run: |
         terraform output -json > terraform_outputs.json
-      working-directory: aspnet-core-dotnet-core/terraform
-
-    - name: Save Existing Terraform Output
-      if: env.EXIT_CODE == '0'
-      run: |
-        terraform show -json | jq '.values.outputs' > terraform_outputs.json
       working-directory: aspnet-core-dotnet-core/terraform
 
     - name: Upload Terraform Outputs
