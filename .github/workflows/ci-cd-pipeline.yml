@@ -37,9 +37,13 @@ jobs:
         terraform plan -out=tfplan 1>stdout 2>stderr
         tf_exitcode=$?
         echo "EXIT_CODE=$tf_exitcode" >> $GITHUB_ENV
-        echo "STDOUT=$(cat ./stdout)" >> $GITHUB_ENV
-        echo "STDERR=$(cat ./stderr)" >> $GITHUB_ENV
+        # Handle output content carefully to avoid issues with special characters or large content
+        cat ./stdout | tee stdout.txt
+        cat ./stderr | tee stderr.txt
+        echo "STDOUT=$(cat stdout.txt | sed 's/\$/\\$/g' | sed 's/"/\\"/g')" >> $GITHUB_ENV
+        echo "STDERR=$(cat stderr.txt | sed 's/\$/\\$/g' | sed 's/"/\\"/g')" >> $GITHUB_ENV
       working-directory: aspnet-core-dotnet-core/terraform
+      shell: bash
 
     - name: Terraform Apply
       if: env.EXIT_CODE == '2'
