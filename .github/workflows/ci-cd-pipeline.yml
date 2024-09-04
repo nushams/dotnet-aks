@@ -37,13 +37,23 @@ jobs:
         terraform plan -out=tfplan 1>stdout 2>stderr
         tf_exitcode=$?
         echo "EXIT_CODE=$tf_exitcode" >> $GITHUB_ENV
-        # Handle output content carefully to avoid issues with special characters or large content
-        cat ./stdout | tee stdout.txt
-        cat ./stderr | tee stderr.txt
-        echo "STDOUT=$(cat stdout.txt | sed 's/\$/\\$/g' | sed 's/"/\\"/g')" >> $GITHUB_ENV
-        echo "STDERR=$(cat stderr.txt | sed 's/\$/\\$/g' | sed 's/"/\\"/g')" >> $GITHUB_ENV
+        # Avoid issues with special characters and large content
+        cat stdout | tee stdout.txt
+        cat stderr | tee stderr.txt
+        # Use artifacts to store stdout and stderr if needed
+        echo "STDOUT=$(cat stdout.txt | sed 's/[^\x00-\x7F]/\\u/g')" >> $GITHUB_ENV
+        echo "STDERR=$(cat stderr.txt | sed 's/[^\x00-\x7F]/\\u/g')" >> $GITHUB_ENV
       working-directory: aspnet-core-dotnet-core/terraform
       shell: bash
+
+    - name: Upload Terraform Plan Output
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: terraform-outputs
+        path: |
+          stdout.txt
+          stderr.txt
 
     - name: Terraform Apply
       if: env.EXIT_CODE == '2'
