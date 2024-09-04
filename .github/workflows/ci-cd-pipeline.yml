@@ -32,25 +32,28 @@ jobs:
 
     - name: Terraform Plan
       id: plan
-      run: terraform plan -detailed-exitcode -out=tfplan
+      run: |
+        terraform plan -out=tfplan || exit_code=$?
+        echo "EXIT_CODE=$exit_code" >> $GITHUB_ENV
       working-directory: aspnet-core-dotnet-core/terraform
-    
+      continue-on-error: true
+
     - name: Terraform Apply
-      if: success() && steps.plan.outputs.exitcode == '2'
+      if: env.EXIT_CODE == '2'
       run: terraform apply -auto-approve tfplan
       working-directory: aspnet-core-dotnet-core/terraform
-    
+
     - name: Save Terraform Output
-      if: success() && steps.plan.outputs.exitcode == '2'
+      if: env.EXIT_CODE == '2'
       run: |
         terraform output -json > terraform_outputs.json
       working-directory: aspnet-core-dotnet-core/terraform
-    
+
     - name: Save Existing Terraform Output
-      if: success() && steps.plan.outputs.exitcode == '0'
+      if: env.EXIT_CODE == '0'
       run: |
         terraform show -json | jq '.values.outputs' > terraform_outputs.json
-      working-directory: aspnet-core-dotnet-core/terraform   
+      working-directory: aspnet-core-dotnet-core/terraform  
 
     - name: Upload Terraform Outputs
       uses: actions/upload-artifact@v2
