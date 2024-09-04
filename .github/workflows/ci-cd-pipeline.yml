@@ -31,12 +31,15 @@ jobs:
       working-directory: aspnet-core-dotnet-core/terraform
 
     - name: Terraform Plan
-      id: plan
+      id: terraform
       run: |
-        terraform plan -out=tfplan || exit_code=$?
-        echo "EXIT_CODE=$exit_code" >> $GITHUB_ENV
+        set +e
+        terraform plan -out=tfplan 1>stdout 2>stderr
+        tf_exitcode=$?
+        echo "EXIT_CODE=$tf_exitcode" >> $GITHUB_ENV
+        echo "STDOUT=$(cat ./stdout)" >> $GITHUB_ENV
+        echo "STDERR=$(cat ./stderr)" >> $GITHUB_ENV
       working-directory: aspnet-core-dotnet-core/terraform
-      continue-on-error: true
 
     - name: Terraform Apply
       if: env.EXIT_CODE == '2'
@@ -53,7 +56,7 @@ jobs:
       if: env.EXIT_CODE == '0'
       run: |
         terraform show -json | jq '.values.outputs' > terraform_outputs.json
-      working-directory: aspnet-core-dotnet-core/terraform  
+      working-directory: aspnet-core-dotnet-core/terraform
 
     - name: Upload Terraform Outputs
       uses: actions/upload-artifact@v2
