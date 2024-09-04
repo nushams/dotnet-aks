@@ -30,6 +30,10 @@ jobs:
       run: terraform init
       working-directory: aspnet-core-dotnet-core/terraform
 
+    - name: Terraform Refresh
+      run: terraform refresh
+      working-directory: aspnet-core-dotnet-core/terraform
+
     - name: Terraform Plan
       run: terraform plan -out=tfplan
       working-directory: aspnet-core-dotnet-core/terraform
