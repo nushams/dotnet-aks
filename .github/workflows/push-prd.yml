@@ -1,0 +1,12 @@
+name: Deployment Production
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  release:
+    uses: ./.github/workflows/ci-cd-pipeline.yml
+    with:
+      environment: PRD
+    secrets: inherit

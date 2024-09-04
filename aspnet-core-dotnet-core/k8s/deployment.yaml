@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nurapp-deployment
+  labels:
+    app: nurapp
+spec:
+  replicas: 1  # Number of replicas (pods)
+  selector:
+    matchLabels:
+      app: nurapp
+  template:
+    metadata:
+      labels:
+        app: nurapp
+    spec:
+      containers:
+      - name: nurapp-container
+        image: nuracr.azurecr.io/nurapp:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+      imagePullSecrets:
+      - name: acr-auth
