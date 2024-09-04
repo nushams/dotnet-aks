@@ -32,25 +32,25 @@ jobs:
 
     - name: Terraform Plan
       id: plan
-      run: terraform plan -out=tfplan
+      run: terraform plan -detailed-exitcode -out=tfplan
       working-directory: aspnet-core-dotnet-core/terraform
-
+    
     - name: Terraform Apply
-      if: steps.plan.outputs.changes != '0'
-      run: terraform apply -auto-approve
+      if: success() && steps.plan.outputs.exitcode == '2'
+      run: terraform apply -auto-approve tfplan
       working-directory: aspnet-core-dotnet-core/terraform
-
+    
     - name: Save Terraform Output
-      if: steps.plan.outputs.changes != '0'
+      if: success() && steps.plan.outputs.exitcode == '2'
       run: |
         terraform output -json > terraform_outputs.json
       working-directory: aspnet-core-dotnet-core/terraform
-
+    
     - name: Save Existing Terraform Output
-      if: steps.plan.outputs.changes == '0'
+      if: success() && steps.plan.outputs.exitcode == '0'
       run: |
         terraform show -json | jq '.values.outputs' > terraform_outputs.json
-      working-directory: aspnet-core-dotnet-core/terraform
+      working-directory: aspnet-core-dotnet-core/terraform   
 
     - name: Upload Terraform Outputs
       uses: actions/upload-artifact@v2
