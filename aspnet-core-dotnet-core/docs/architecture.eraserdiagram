@@ -1,0 +1,66 @@
+# Architecture Diagram
+
+title "Azure Architecture"
+
+# Define Providers
+provider "azurerm" as azurerm
+provider "azuread" as azuread
+
+# Resource Group
+azurerm_resource_group "rg" as RG {
+    name: "Resource Group"
+    location: "Location"
+}
+
+# Log Analytics Workspace
+azurerm_log_analytics_workspace "law" as LAW {
+    name: "Log Analytics Workspace"
+    location: "Location"
+}
+
+# Kubernetes Cluster
+azurerm_kubernetes_cluster "aks" as AKS {
+    name: "Kubernetes Cluster"
+    location: "Location"
+    node_count: 2
+    vm_size: "Standard_DS2_v2"
+    network_plugin: "azure"
+    load_balancer_sku: "standard"
+}
+
+# Container Registry
+azurerm_container_registry "acr" as ACR {
+    name: "Container Registry"
+    location: "Location"
+    sku: "Standard"
+}
+
+# Role Assignment: AKS to ACR
+azurerm_role_assignment "acr_to_aks" as ACR_TO_AKS {
+    role_definition_name: "AcrPull"
+}
+
+# Role Assignment: Contributor
+azurerm_role_assignment "contributor" as CONTRIBUTOR {
+    role_definition_name: "Contributor"
+}
+
+# Azure AD Group
+azuread_group "devs" as DEVS {
+    display_name: "Developers Group"
+}
+
+# Monitor Diagnostic Setting
+azurerm_monitor_diagnostic_setting "monitoring" as MONITORING {
+    name: "Diagnostic Setting"
+    enabled_log_category: "kube-audit"
+    metric_category: "AllMetrics"
+}
+
+# Relationships
+RG -> LAW : Contains
+RG -> AKS : Contains
+RG -> ACR : Contains
+AKS -> ACR : Pulls Images From
+AKS -> MONITORING : Logs Metrics
+DEVS -> CONTRIBUTOR : Assigned
