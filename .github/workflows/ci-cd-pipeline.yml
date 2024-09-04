@@ -83,7 +83,14 @@ jobs:
       run: dotnet build -p:Environment=${{ inputs.environment }} --no-restore
 
     - name: Test
-      run: dotnet test -p:Environment=${{ inputs.environment }} --no-restore --verbosity normal
+      run: dotnet test -p:Environment=${{ inputs.environment }} --no-restore -- logger trx --results-directory aspnet-core-dotnet-core/docs
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      with:
+        name: dotnet-results
+        path: aspnet-core-dotnet-core/docs
+      if: ${{ always() }}
 
   deploy:
     runs-on: ubuntu-latest
@@ -145,4 +152,5 @@ jobs:
       run: |
         kubectl apply -f aspnet-core-dotnet-core/k8s/deployment.yaml
         kubectl apply -f aspnet-core-dotnet-core/k8s/service.yaml
+        kubectl apply -f aspnet-core-dotnet-core/k8s/hpa.yaml
         kubectl set image deployment/nurapp-deployment nurapp-container=${{ env.ACR_LOGIN_SERVER }}/nurapp:${{ github.sha }}
